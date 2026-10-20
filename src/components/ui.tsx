@@ -68,3 +68,17 @@ export function Volver({ href, texto = "Volver" }: { href: string; texto?: strin
 export function Vacio({ texto }: { texto: string }) {
   return <p className="rounded-2xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500">{texto}</p>;
 }
+
+export function SelectorMes({ base, mes, anterior, siguiente, titulo }: { base: string; mes: string; anterior: string; siguiente: string; titulo: string }) {
+  return (
+    <div className="mb-3 flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-2 py-1.5" data-mes={mes}>
+      <Link href={`${base}?mes=${anterior}`} className="rounded-lg px-3 py-1 text-lg text-slate-500" aria-label="Mes anterior">
+        ‹
+      </Link>
+      <span className="text-sm font-semibold">{titulo}</span>
+      <Link href={`${base}?mes=${siguiente}`} className="rounded-lg px-3 py-1 text-lg text-slate-500" aria-label="Mes siguiente">
+        ›
+      </Link>
+    </div>
+  );
+}
