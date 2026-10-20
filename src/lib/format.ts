@@ -22,3 +22,8 @@ export function fecha(d: Date | string) {
 export function redondear(n: number) {
   return Math.round(n * 100) / 100;
 }
+
+/** Hora actual (centralizado para cálculos de días restantes en el servidor). */
+export function ahoraMs() {
+  return Date.now();
+}

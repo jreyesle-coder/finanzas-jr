@@ -95,7 +95,10 @@ model Pago {
   monto   Float
   fecha   DateTime
   tipo    String   @default("regular") // regular | extraordinario
+  capital Float    @default(0) // parte que redujo el saldo (para poder revertir)
+  interes Float    @default(0)
   nota    String?
+  createdAt DateTime @default(now())
 }
 
 /// Atrasos acumulados: separados del flujo mensual. saldo = montoOriginal - montoAbonado
