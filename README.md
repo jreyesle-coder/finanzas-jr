@@ -6,13 +6,33 @@ Tablero privado de salida de deuda y estabilización financiera para Julio y su 
 
 ## Estado
 
-| Sprint | Contenido | Estado |
-|---|---|---|
-| 0 | Fundación: esquema, login 2 usuarios, layout móvil, configuración, Docker | ✅ |
-| 1 | Deudas y préstamos | Próximo |
-| 2–6 | Ingresos/egresos, flujo de caja, atrasos/fondos, tablero/simuladores, importación/respaldo | Pendiente |
+Los 7 sprints del spec están entregados (tags `s0`…`s6`).
 
-El seed ya carga **toda** la situación de octubre 2026 (ingresos, gastos, deudas, atrasos, fondos, activo), así que cada sprint solo construye pantallas sobre datos reales.
+| Sprint | Contenido |
+|---|---|
+| 0 | Esquema, login de 2 usuarios, layout móvil, configuración, Docker |
+| 1 | Deudas: CRUD, progreso de cuotas, deuda consolidada, pagos regulares (interés + capital) y extraordinarios |
+| 2 | Ingresos y gastos (bolsillo manejable vs auto-debitado), registro rápido, movimientos por mes con real vs presupuesto |
+| 3 | Flujo de caja: calendario, saldo diario, tramos de iliquidez ("¿en qué días me quedo corto?"), próximos pagos |
+| 4 | Atrasos con abonos y proyección (bola de nieve por prioridad); fondos con aportes, retiros y meta |
+| 5 | Tablero con semáforo de fase, simulador de abono (límite 30% anual) y proyección de salida de deuda |
+| 6 | Importador CSV del banco, exportación JSON/CSV, respaldo diario automático, avisos, seguridad y pulido |
+
+El seed carga la situación real de octubre 2026. Pantallas principales: Inicio (tablero), Flujo, Registrar (+), Deudas y Más (ingresos, gastos, movimientos, atrasos, fondos, simulador, proyección, importar, respaldo, configuración).
+
+### Supuestos del flujo de caja
+- Ingresos **sin día de cobro** no entran al calendario (conservador). Asignarles día en Más → Ingresos.
+- Gastos y cuotas sin día se cuentan el día 1.
+- El bolsillo auto-debitado (CORPHOTELS → Banreservas) se muestra aparte.
+- El saldo inicial de cada mes se ajusta en Flujo → "Ajustar saldo con que empieza el mes".
+
+### Respaldo
+- Copia automática diaria del SQLite en `backups/` (Docker: `/app/data/backups`), se guardan 14. Variables: `BACKUP_DIR`, `BACKUP_KEEP`, `BACKUP_AUTO=off`.
+- Más → Respaldo: crear copia, descargarlas, exportar todo a JSON o cada tabla a CSV.
+- Restaurar: detener la app y reemplazar `finanzas.db` por la copia.
+
+### Seguridad
+Sesión firmada en cookie httpOnly (30 días), contraseñas con bcrypt, bloqueo de 15 min tras 5 intentos fallidos, cabeceras de seguridad, ninguna página ni API responde sin sesión. HTTPS lo da el proxy (ver abajo).
 
 ## Correr en la PC (desarrollo)
 
@@ -40,7 +60,7 @@ Abre http://localhost:3000. Las contraseñas iniciales quedan en `credenciales-i
    ```
    (En un NAS sin dominio: Tailscale o Cloudflare Tunnel.)
 
-**Respaldo:** copiar `./data/finanzas.db` (respaldo automático y exportación JSON/CSV llegan en el Sprint 6).
+**Respaldo:** automático cada día en `./data/backups`; además copiar esa carpeta fuera del servidor de vez en cuando.
 
 ## Alternativa PaaS (Railway / Render)
 

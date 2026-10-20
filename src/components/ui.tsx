@@ -11,7 +11,11 @@ export function Encabezado({ titulo, subtitulo }: { titulo: string; subtitulo?: 
 }
 
 export function Tarjeta({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <section className={`rounded-2xl border border-slate-200 bg-white p-4 ${className}`}>{children}</section>;
+  // Fondo y borde por defecto solo si no se pasan otros (en Tailwind gana el orden del CSS, no el de las clases)
+  const fondo = /(^|\s)bg-/.test(className) ? "" : "bg-white";
+  const borde = /(^|\s)border-(?!\d)[a-z]/.test(className) ? "" : "border-slate-200";
+  const relleno = /(^|\s)p-\d/.test(className) ? "" : "p-4";
+  return <section className={`rounded-2xl border ${relleno} ${borde} ${fondo} ${className}`}>{children}</section>;
 }
 
 export function Proximamente({ sprint, texto }: { sprint: number; texto: string }) {

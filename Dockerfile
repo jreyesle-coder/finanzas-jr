@@ -20,7 +20,8 @@ ENV NODE_ENV=production \
     PORT=3000 \
     HOSTNAME=0.0.0.0 \
     DATABASE_URL=file:/app/data/finanzas.db \
-    SEED_CREDENCIALES=/app/data/credenciales-iniciales.txt
+    SEED_CREDENCIALES=/app/data/credenciales-iniciales.txt \
+    BACKUP_DIR=/app/data/backups
 RUN npm i -g prisma@6.19.3 tsx@4 && groupadd -r app && useradd -r -g app app && mkdir -p /app/data && chown app:app /app/data
 COPY --from=builder --chown=app:app /app/.next/standalone ./
 COPY --from=builder --chown=app:app /app/.next/static ./.next/static
