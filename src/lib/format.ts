@@ -27,3 +27,12 @@ export function redondear(n: number) {
 export function ahoraMs() {
   return Date.now();
 }
+
+/** Formato corto para celdas: 52.3k, 1.6M */
+export function corto(n: number) {
+  const a = Math.abs(n);
+  const s = n < 0 ? "−" : "";
+  if (a >= 1_000_000) return `${s}${(a / 1_000_000).toFixed(1)}M`;
+  if (a >= 1_000) return `${s}${(a / 1_000).toFixed(a >= 100_000 ? 0 : 1)}k`;
+  return `${s}${Math.round(a)}`;
+}

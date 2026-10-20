@@ -175,3 +175,9 @@ model Config {
   tasaUSDtoDOP Float @default(62)
   diaInicioMes Int   @default(1)
 }
+
+/// Saldo con el que arranca el bolsillo manejable cada mes ("2026-10")
+model SaldoMes {
+  mes          String @id
+  saldoInicial Float  @default(0)
+}
