@@ -1,9 +1,9 @@
 import type { NextConfig } from "next";
 
+// App privada 100% dinámica (todo depende de la sesión y la BD): sin Cache Components.
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
+  output: "standalone",
+  poweredByHeader: false,
   turbopack: {
     rules: {
       "*.css": {

@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Finanzas JR
 
-## Getting Started
+Tablero privado de salida de deuda y estabilización financiera para Julio y su esposa. Spec completo y plan por sprints en [SPEC.md](SPEC.md).
 
-First, run the development server:
+**Stack:** Next.js 16 (App Router) · TypeScript · Tailwind 4 · Prisma 6 + SQLite · sesión JWT en cookie httpOnly · Docker.
+
+## Estado
+
+| Sprint | Contenido | Estado |
+|---|---|---|
+| 0 | Fundación: esquema, login 2 usuarios, layout móvil, configuración, Docker | ✅ |
+| 1 | Deudas y préstamos | Próximo |
+| 2–6 | Ingresos/egresos, flujo de caja, atrasos/fondos, tablero/simuladores, importación/respaldo | Pendiente |
+
+El seed ya carga **toda** la situación de octubre 2026 (ingresos, gastos, deudas, atrasos, fondos, activo), así que cada sprint solo construye pantallas sobre datos reales.
+
+## Correr en la PC (desarrollo)
 
 ```bash
+npm install
+cp .env.example .env        # y pon un AUTH_SECRET propio
+npx prisma migrate dev      # crea prisma/dev.db y corre el seed
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre http://localhost:3000. Las contraseñas iniciales quedan en `credenciales-iniciales.txt` (no se sube a git). Usuario: `julio` o `esposa`. Cambiarlas en **Más → Mi cuenta** y borrar ese archivo.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Producción en un VPS o NAS (Docker)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Instalar Docker en el servidor y copiar el proyecto (git clone).
+2. Crear `.env.production` a partir de `.env.production.example` con un `AUTH_SECRET` nuevo:
+   `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`
+3. `docker compose up -d --build`
+4. La primera vez se crean la base (`./data/finanzas.db`) y las credenciales (`./data/credenciales-iniciales.txt`).
+5. **HTTPS:** el contenedor solo escucha en `127.0.0.1:3000`. Publicarlo con un proxy con certificado automático, p. ej. Caddy:
+   ```
+   finanzas.tudominio.com {
+     reverse_proxy 127.0.0.1:3000
+   }
+   ```
+   (En un NAS sin dominio: Tailscale o Cloudflare Tunnel.)
 
-## Learn More
+**Respaldo:** copiar `./data/finanzas.db` (respaldo automático y exportación JSON/CSV llegan en el Sprint 6).
 
-To learn more about Next.js, take a look at the following resources:
+## Alternativa PaaS (Railway / Render)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Desplegar desde GitHub usando el `Dockerfile`.
+- Agregar un **volumen persistente** montado en `/app/data` (sin volumen, SQLite se borra en cada deploy).
+- Variable de entorno: `AUTH_SECRET`. HTTPS lo pone la plataforma.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Migrar a PostgreSQL más adelante
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+En `prisma/schema.prisma` cambiar `provider = "sqlite"` por `"postgresql"`, apuntar `DATABASE_URL` al servidor y regenerar migraciones. El esquema no usa nada exclusivo de SQLite.

@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+*.db
+*.db-journal
+data
+backups
+.env
+.env.production
+credenciales-iniciales.txt

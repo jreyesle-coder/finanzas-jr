@@ -1,0 +1,174 @@
+// Esquema de datos — Finanzas JR (SPEC.md §5)
+// Montos en Float con 2 decimales; cada monto guarda su moneda original ("DOP" | "USD").
+// Los "enums" se guardan como String para que el esquema migre sin cambios a PostgreSQL.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String       @id @default(cuid())
+  nombre       String
+  email        String       @unique
+  passwordHash String
+  createdAt    DateTime     @default(now())
+  movimientos  Movimiento[]
+}
+
+/// Bolsillo/cuenta. bolsillo: "manejable" | "auto_debitado"
+model Cuenta {
+  id          String       @id @default(cuid())
+  nombre      String
+  banco       String?
+  tipo        String       @default("corriente") // corriente | ahorro | efectivo | tarjeta
+  bolsillo    String       @default("manejable")
+  moneda      String       @default("DOP")
+  nota        String?
+  ingresos    Ingreso[]
+  deudas      Deuda[]
+  movimientos Movimiento[]
+}
+
+model Ingreso {
+  id          String    @id @default(cuid())
+  nombre      String
+  fuente      String
+  monto       Float
+  moneda      String    @default("DOP")
+  frecuencia  String    @default("recurrente") // recurrente | puntual
+  diaDelMes   Int?      // si recurrente
+  fecha       DateTime? // si puntual
+  bolsillo    String    @default("manejable") // manejable | auto_debitado
+  cuentaId    String?
+  cuenta      Cuenta?   @relation(fields: [cuentaId], references: [id], onDelete: SetNull)
+  porVerificar Boolean  @default(false)
+  activo      Boolean   @default(true)
+  nota        String?
+}
+
+model Gasto {
+  id          String    @id @default(cuid())
+  categoria   String
+  descripcion String
+  monto       Float
+  moneda      String    @default("DOP")
+  tipo        String    @default("fijo") // fijo | variable
+  frecuencia  String    @default("recurrente") // recurrente | puntual
+  diaDelMes   Int?
+  fecha       DateTime?
+  activo      Boolean   @default(true)
+  nota        String?
+}
+
+model Deuda {
+  id                 String    @id @default(cuid())
+  nombre             String
+  acreedor           String
+  tipo               String    @default("prestamo") // prestamo | hipoteca | tarjeta
+  saldoActual        Float
+  cuotaMensual       Float
+  tasaAnual          Float?    // % anual, p. ej. 21.95
+  tasaFijaHasta      DateTime?
+  plazoMeses         Int?
+  cuotasPagadas      Int       @default(0)
+  diaPago            Int?
+  moneda             String    @default("DOP")
+  autoDebito         Boolean   @default(false)
+  cuentaOrigenId     String?
+  cuentaOrigen       Cuenta?   @relation(fields: [cuentaOrigenId], references: [id], onDelete: SetNull)
+  permitePrepago     Boolean   @default(false)
+  condicionesPrepago String?
+  activa             Boolean   @default(true)
+  nota               String?
+  pagos              Pago[]
+}
+
+model Pago {
+  id      String   @id @default(cuid())
+  deudaId String
+  deuda   Deuda    @relation(fields: [deudaId], references: [id], onDelete: Cascade)
+  monto   Float
+  fecha   DateTime
+  tipo    String   @default("regular") // regular | extraordinario
+  nota    String?
+}
+
+/// Atrasos acumulados: separados del flujo mensual. saldo = montoOriginal - montoAbonado
+model Atraso {
+  id            String        @id @default(cuid())
+  concepto      String
+  montoOriginal Float
+  montoAbonado  Float         @default(0)
+  moneda        String        @default("DOP")
+  prioridad     Int           @default(1) // 1 = más urgente
+  nota          String?
+  abonos        AbonoAtraso[]
+}
+
+model AbonoAtraso {
+  id       String   @id @default(cuid())
+  atrasoId String
+  atraso   Atraso   @relation(fields: [atrasoId], references: [id], onDelete: Cascade)
+  monto    Float
+  fecha    DateTime
+  nota     String?
+}
+
+model Fondo {
+  id          String        @id @default(cuid())
+  nombre      String
+  tipo        String        @default("otro") // emergencia | medico | otro
+  meta        Float?
+  saldoActual Float         @default(0)
+  moneda      String        @default("DOP")
+  nota        String?
+  aportes     AporteFondo[]
+}
+
+model AporteFondo {
+  id      String   @id @default(cuid())
+  fondoId String
+  fondo   Fondo    @relation(fields: [fondoId], references: [id], onDelete: Cascade)
+  monto   Float    // negativo = retiro
+  fecha   DateTime
+  nota    String?
+}
+
+/// Registro real del día a día
+model Movimiento {
+  id        String   @id @default(cuid())
+  fecha     DateTime
+  tipo      String   // ingreso | gasto
+  monto     Float
+  moneda    String   @default("DOP")
+  categoria String
+  cuentaId  String?
+  cuenta    Cuenta?  @relation(fields: [cuentaId], references: [id], onDelete: SetNull)
+  nota      String?
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+}
+
+model Activo {
+  id              String    @id @default(cuid())
+  nombre          String
+  tipo            String    @default("inmueble")
+  rentaPotencial  Float?
+  costoReparacion Float?
+  vendibleDesde   DateTime?
+  moneda          String    @default("DOP")
+  nota            String?
+}
+
+/// Fila única (id = 1)
+model Config {
+  id           Int   @id @default(1)
+  tasaUSDtoDOP Float @default(62)
+  diaInicioMes Int   @default(1)
+}

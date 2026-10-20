@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# finanzas-jr
+*.db
+*.db-journal
+/data
+/backups
+credenciales-iniciales.txt
+!.env.example
+.env.production
