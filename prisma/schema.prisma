@@ -109,6 +109,7 @@ model Atraso {
   montoAbonado  Float         @default(0)
   moneda        String        @default("DOP")
   prioridad     Int           @default(1) // 1 = más urgente
+  abonoMensualPlan Float?     // cuánto planean abonar al mes
   nota          String?
   abonos        AbonoAtraso[]
 }
@@ -129,6 +130,7 @@ model Fondo {
   meta        Float?
   saldoActual Float         @default(0)
   moneda      String        @default("DOP")
+  aporteMensualPlan Float?
   nota        String?
   aportes     AporteFondo[]
 }
