@@ -2,7 +2,7 @@
 
 Tablero privado de salida de deuda y estabilización financiera para Julio y su esposa. Spec completo y plan por sprints en [SPEC.md](SPEC.md).
 
-**Stack:** Next.js 16 (App Router) · TypeScript · Tailwind 4 · Prisma 6 + SQLite · sesión JWT en cookie httpOnly · Docker.
+**Stack:** Next.js 16 (App Router) · TypeScript · Tailwind 4 · Prisma 6 + PostgreSQL (Supabase) · sesión JWT en cookie httpOnly · Vercel.
 
 ## Estado
 
@@ -27,9 +27,8 @@ El seed carga la situación real de octubre 2026. Pantallas principales: Inicio 
 - El saldo inicial de cada mes se ajusta en Flujo → "Ajustar saldo con que empieza el mes".
 
 ### Respaldo
-- Copia automática diaria del SQLite en `backups/` (Docker: `/app/data/backups`), se guardan 14. Variables: `BACKUP_DIR`, `BACKUP_KEEP`, `BACKUP_AUTO=off`.
-- Más → Respaldo: crear copia, descargarlas, exportar todo a JSON o cada tabla a CSV.
-- Restaurar: detener la app y reemplazar `finanzas.db` por la copia.
+- Copia JSON completa diaria (6:00 a. m. RD) en Supabase Storage, bucket privado `respaldos` (se crea solo), se conservan 30. La dispara el cron de Vercel (`vercel.json` → `/api/cron/respaldo`, protegido con `CRON_SECRET`).
+- Más → Respaldo: crear copia ahora, descargarlas, exportar todo a JSON o cada tabla a CSV.
 
 ### Seguridad
 Sesión firmada en cookie httpOnly (30 días), contraseñas con bcrypt, bloqueo de 15 min tras 5 intentos fallidos, cabeceras de seguridad, ninguna página ni API responde sin sesión. HTTPS lo da el proxy (ver abajo).
@@ -37,40 +36,17 @@ Sesión firmada en cookie httpOnly (30 días), contraseñas con bcrypt, bloqueo 
 ## Correr en la PC (desarrollo)
 
 ```bash
+docker run -d --name finanzas-pg -e POSTGRES_PASSWORD=local -e POSTGRES_DB=finanzas -p 54329:5432 postgres:16-alpine
+cp .env.example .env        # DATABASE_URL y DIRECT_URL = postgresql://postgres:local@localhost:54329/finanzas
 npm install
-cp .env.example .env        # y pon un AUTH_SECRET propio
-npx prisma migrate dev      # crea prisma/dev.db y corre el seed
+npx prisma migrate dev      # crea las tablas
+npx prisma db seed          # carga octubre 2026 y crea los usuarios
 npm run dev
 ```
 
-Abre http://localhost:3000. Las contraseñas iniciales quedan en `credenciales-iniciales.txt` (no se sube a git). Usuario: `julio` o `esposa`. Cambiarlas en **Más → Mi cuenta** y borrar ese archivo.
+## En línea: Supabase + Vercel
 
-## Producción en un VPS o NAS (Docker)
-
-1. Instalar Docker en el servidor y copiar el proyecto (git clone).
-2. Crear `.env.production` a partir de `.env.production.example` con un `AUTH_SECRET` nuevo:
-   `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`
-3. `docker compose up -d --build`
-4. La primera vez se crean la base (`./data/finanzas.db`) y las credenciales (`./data/credenciales-iniciales.txt`).
-5. **HTTPS:** el contenedor solo escucha en `127.0.0.1:3000`. Publicarlo con un proxy con certificado automático, p. ej. Caddy:
-   ```
-   finanzas.tudominio.com {
-     reverse_proxy 127.0.0.1:3000
-   }
-   ```
-   (En un NAS sin dominio: Tailscale o Cloudflare Tunnel.)
-
-**Respaldo:** automático cada día en `./data/backups`; además copiar esa carpeta fuera del servidor de vez en cuando.
-
-## En línea con Railway (recomendado)
-
-1. Repositorio privado en GitHub con este código.
-2. railway.com → New Project → Deploy from GitHub repo → elegir el repo (usa el `Dockerfile`).
-3. En el servicio: **Variables** → `AUTH_SECRET`, `CLAVE_INICIAL_JULIO`, `CLAVE_INICIAL_ESPOSA`.
-4. Clic derecho en el servicio → **Attach volume** → montar en `/app/data` (ahí viven la base y los respaldos).
-5. **Settings → Networking → Generate Domain** → queda en `https://<algo>.up.railway.app` con HTTPS.
-6. Cada `git push` vuelve a desplegar; los datos quedan en el volumen.
-
-## Migrar a PostgreSQL más adelante
-
-En `prisma/schema.prisma` cambiar `provider = "sqlite"` por `"postgresql"`, apuntar `DATABASE_URL` al servidor y regenerar migraciones. El esquema no usa nada exclusivo de SQLite.
+1. **Supabase:** proyecto nuevo → Project Settings → Database → Connection string: copiar el pooler *Transaction* (6543) a `DATABASE_URL` (agregar `?pgbouncer=true&connection_limit=1`) y el *Session* (5432) a `DIRECT_URL`. Project Settings → API: `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY`.
+2. **Cargar datos:** con esas variables en `.env`, correr `npx prisma migrate deploy` y `npx prisma db seed` (usa `CLAVE_INICIAL_JULIO` / `CLAVE_INICIAL_ESPOSA` si están definidas).
+3. **Vercel:** importar el repo, agregar `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`. El build aplica migraciones solo (`prisma migrate deploy && next build`).
+4. Cada `git push` despliega. HTTPS lo pone Vercel.

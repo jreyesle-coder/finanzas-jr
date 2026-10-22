@@ -11,7 +11,6 @@ const cabecerasSeguridad = [
 
 // App privada 100% dinámica (todo depende de la sesión y la BD): sin Cache Components.
 const nextConfig: NextConfig = {
-  output: "standalone",
   poweredByHeader: false,
   async headers() {
     return [{ source: "/:path*", headers: cabecerasSeguridad }];

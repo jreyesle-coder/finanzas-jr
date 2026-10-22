@@ -1,14 +1,16 @@
 // Esquema de datos — Finanzas JR (SPEC.md §5)
 // Montos en Float con 2 decimales; cada monto guarda su moneda original ("DOP" | "USD").
-// Los "enums" se guardan como String para que el esquema migre sin cambios a PostgreSQL.
+// Los "enums" se guardan como String (simples de cambiar sin migraciones de tipo).
 
 generator client {
   provider = "prisma-client-js"
 }
 
+// Supabase: DATABASE_URL = pooler (puerto 6543, ?pgbouncer=true); DIRECT_URL = conexión directa para migraciones
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {

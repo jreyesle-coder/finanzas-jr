@@ -1,5 +1,5 @@
 import { fecha } from "@/lib/format";
-import { listarRespaldos } from "@/lib/respaldo";
+import { listarRespaldos, respaldosConfigurados } from "@/lib/respaldo";
 import { Encabezado, Tarjeta, Volver } from "@/components/ui";
 import { FormEstado } from "@/components/form-estado";
 import { respaldarAhora } from "./actions";
@@ -41,8 +41,11 @@ export default async function RespaldoPage() {
       </Tarjeta>
 
       <Tarjeta>
-        <h2 className="font-semibold">Copias de la base de datos</h2>
-        <p className="mb-3 text-xs text-slate-500">Se crea una copia automática cada día y se guardan las últimas 14. Para restaurar, se reemplaza el archivo de la base por una de estas copias.</p>
+        <h2 className="font-semibold">Copias automáticas</h2>
+        <p className="mb-3 text-xs text-slate-500">Cada día a las 6:00 a. m. se guarda una copia completa (JSON) en Supabase Storage y se conservan las últimas 30.</p>
+        {!respaldosConfigurados && (
+          <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">Falta configurar SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY para las copias automáticas.</p>
+        )}
         <FormEstado accion={respaldarAhora} boton="Crear copia ahora">
           <span />
         </FormEstado>

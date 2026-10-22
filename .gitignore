@@ -47,5 +47,3 @@ next-env.d.ts
 /backups
 credenciales-iniciales.txt
 !.env.example
-.env.production
-railway-variables.txt

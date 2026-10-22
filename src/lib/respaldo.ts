@@ -1,51 +1,82 @@
 import "server-only";
-import { mkdir, readdir, stat, unlink } from "node:fs/promises";
-import path from "node:path";
 import { prisma } from "./db";
 
-// Respaldos del archivo SQLite con VACUUM INTO (copia consistente aunque la app esté en uso).
-export const DIR_RESPALDOS = path.resolve(process.env.BACKUP_DIR ?? "backups");
-const CONSERVAR = Number(process.env.BACKUP_KEEP ?? 14);
-const NOMBRE = /^finanzas-\d{4}-\d{2}-\d{2}_\d{6}\.db$/;
+// Respaldos: copia JSON completa guardada en Supabase Storage (bucket privado "respaldos").
+// Se crea una al día con el cron de Vercel (/api/cron/respaldo) y a mano desde Más → Respaldo.
+const URL_SB = process.env.SUPABASE_URL?.replace(/\/$/, "");
+const CLAVE_SB = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const BUCKET = "respaldos";
+const CONSERVAR = Number(process.env.BACKUP_KEEP ?? 30);
+const NOMBRE = /^finanzas-\d{4}-\d{2}-\d{2}_\d{6}\.json$/;
+
+export const respaldosConfigurados = !!(URL_SB && CLAVE_SB);
 
 export function nombreValido(n: string) {
   return NOMBRE.test(n);
 }
 
+async function storage(ruta: string, init: RequestInit = {}) {
+  if (!URL_SB || !CLAVE_SB) throw new Error("Faltan SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY");
+  return fetch(`${URL_SB}/storage/v1/${ruta}`, {
+    ...init,
+    headers: { Authorization: `Bearer ${CLAVE_SB}`, apikey: CLAVE_SB, ...init.headers },
+    cache: "no-store",
+  });
+}
+
+async function asegurarBucket() {
+  const r = await storage(`bucket/${BUCKET}`);
+  if (r.ok) return;
+  const c = await storage("bucket", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: BUCKET, name: BUCKET, public: false }),
+  });
+  if (!c.ok && c.status !== 409) throw new Error(`No se pudo crear el bucket: ${c.status} ${await c.text()}`);
+}
+
 export async function crearRespaldo() {
-  await mkdir(DIR_RESPALDOS, { recursive: true });
+  await asegurarBucket();
   const ts = new Date().toISOString().replace(/[-:]/g, "").replace("T", "_").slice(0, 15); // 20261020_223015
-  const nombre = `finanzas-${ts.slice(0, 4)}-${ts.slice(4, 6)}-${ts.slice(6, 8)}_${ts.slice(9, 15)}.db`;
-  const destino = path.join(DIR_RESPALDOS, nombre);
-  await prisma.$executeRawUnsafe(`VACUUM INTO '${destino.replace(/'/g, "''")}'`);
+  const nombre = `finanzas-${ts.slice(0, 4)}-${ts.slice(4, 6)}-${ts.slice(6, 8)}_${ts.slice(9, 15)}.json`;
+  const r = await storage(`object/${BUCKET}/${nombre}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-upsert": "true" },
+    body: JSON.stringify(await exportarTodo()),
+  });
+  if (!r.ok) throw new Error(`No se pudo subir el respaldo: ${r.status} ${await r.text()}`);
   await limpiarViejos();
   return nombre;
 }
 
-export async function listarRespaldos() {
-  try {
-    const archivos = (await readdir(DIR_RESPALDOS)).filter(nombreValido).sort().reverse();
-    return Promise.all(
-      archivos.map(async (nombre) => {
-        const s = await stat(path.join(DIR_RESPALDOS, nombre));
-        return { nombre, bytes: s.size, fecha: s.mtime };
-      }),
-    );
-  } catch {
-    return [];
-  }
+export async function listarRespaldos(): Promise<{ nombre: string; bytes: number; fecha: Date }[]> {
+  if (!respaldosConfigurados) return [];
+  const r = await storage(`object/list/${BUCKET}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prefix: "", limit: 200, sortBy: { column: "name", order: "desc" } }),
+  });
+  if (!r.ok) return [];
+  const lista = (await r.json()) as { name: string; created_at: string; metadata?: { size?: number } }[];
+  return lista
+    .filter((o) => nombreValido(o.name))
+    .map((o) => ({ nombre: o.name, bytes: o.metadata?.size ?? 0, fecha: new Date(o.created_at) }));
+}
+
+export async function descargarRespaldo(nombre: string) {
+  if (!nombreValido(nombre)) return null;
+  const r = await storage(`object/${BUCKET}/${nombre}`);
+  return r.ok ? r.text() : null;
 }
 
 async function limpiarViejos() {
-  const lista = await listarRespaldos();
-  for (const r of lista.slice(CONSERVAR)) await unlink(path.join(DIR_RESPALDOS, r.nombre)).catch(() => {});
-}
-
-/** Respaldo automático: si el último tiene más de 24 h (o no hay ninguno). */
-export async function respaldoSiToca() {
-  const [ultimo] = await listarRespaldos();
-  if (ultimo && Date.now() - ultimo.fecha.getTime() < 23.5 * 3_600_000) return null;
-  return crearRespaldo();
+  const viejos = (await listarRespaldos()).slice(CONSERVAR).map((r) => r.nombre);
+  if (!viejos.length) return;
+  await storage(`object/${BUCKET}`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prefixes: viejos }),
+  });
 }
 
 /** Todos los datos (sin contraseñas) para exportar a JSON. */
