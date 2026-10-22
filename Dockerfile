@@ -31,7 +31,7 @@ COPY --from=builder --chown=app:app /app/node_modules/.prisma ./node_modules/.pr
 # El seed corre fuera del bundle de Next: necesita bcryptjs como módulo
 COPY --from=builder --chown=app:app /app/node_modules/bcryptjs ./node_modules/bcryptjs
 COPY --chown=app:app docker-entrypoint.sh ./
-USER app
-VOLUME /app/data
+# Arranca como root solo para ajustar permisos del disco montado (Railway/NAS) y luego baja a "app".
+# Sin instrucción VOLUME: Railway la prohíbe; el volumen se monta desde compose o la plataforma.
 EXPOSE 3000
 ENTRYPOINT ["sh", "./docker-entrypoint.sh"]

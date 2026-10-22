@@ -12,19 +12,20 @@ function generarClave() {
 }
 
 async function seedUsuarios() {
+  // Contraseñas iniciales: de las variables CLAVE_INICIAL_JULIO / CLAVE_INICIAL_ESPOSA, o aleatorias
   const usuarios = [
-    { nombre: "Julio", email: "julio@finanzas.local" },
-    { nombre: "Esposa", email: "esposa@finanzas.local" },
+    { nombre: "Julio", email: "julio@finanzas.local", clave: process.env.CLAVE_INICIAL_JULIO },
+    { nombre: "Esposa", email: "esposa@finanzas.local", clave: process.env.CLAVE_INICIAL_ESPOSA },
   ];
   const creadas: string[] = [];
-  for (const u of usuarios) {
+  for (const { clave: definida, ...u } of usuarios) {
     const existe = await prisma.user.findUnique({ where: { email: u.email } });
     if (existe) continue;
-    const clave = generarClave();
+    const clave = definida || generarClave();
     await prisma.user.create({
       data: { ...u, passwordHash: await bcrypt.hash(clave, 12) },
     });
-    creadas.push(`${u.nombre}: ${u.email} / ${clave}`);
+    if (!definida) creadas.push(`${u.nombre}: ${u.email} / ${clave}`);
   }
   if (creadas.length) {
     const archivo = process.env.SEED_CREDENCIALES ?? "credenciales-iniciales.txt";

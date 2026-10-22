@@ -62,11 +62,14 @@ Abre http://localhost:3000. Las contraseñas iniciales quedan en `credenciales-i
 
 **Respaldo:** automático cada día en `./data/backups`; además copiar esa carpeta fuera del servidor de vez en cuando.
 
-## Alternativa PaaS (Railway / Render)
+## En línea con Railway (recomendado)
 
-- Desplegar desde GitHub usando el `Dockerfile`.
-- Agregar un **volumen persistente** montado en `/app/data` (sin volumen, SQLite se borra en cada deploy).
-- Variable de entorno: `AUTH_SECRET`. HTTPS lo pone la plataforma.
+1. Repositorio privado en GitHub con este código.
+2. railway.com → New Project → Deploy from GitHub repo → elegir el repo (usa el `Dockerfile`).
+3. En el servicio: **Variables** → `AUTH_SECRET`, `CLAVE_INICIAL_JULIO`, `CLAVE_INICIAL_ESPOSA`.
+4. Clic derecho en el servicio → **Attach volume** → montar en `/app/data` (ahí viven la base y los respaldos).
+5. **Settings → Networking → Generate Domain** → queda en `https://<algo>.up.railway.app` con HTTPS.
+6. Cada `git push` vuelve a desplegar; los datos quedan en el volumen.
 
 ## Migrar a PostgreSQL más adelante
 
